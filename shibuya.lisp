@@ -1,8 +1,13 @@
 (defpackage :shibuya.lisp
   (:use :cl)
   (:nicknames :sl)
-  (:export 
-   :listq))
+  (:export :listq
+           :ycomb
+           :ycall
+           :cut
+           :cute
+           :<>
+           :<...>))
 
 (in-package :sl)
 
@@ -45,3 +50,57 @@
 ;16,853,890 microseconds (16.853890 seconds) was spent in GC.
 ; 26,197,543,632 bytes of memory allocated.
 ;Intel(R) Core(TM)2 Duo CPU     P8600  @ 2.40GHz
+
+
+;; SRFI-26
+;; テストしてない
+(defmacro cut (&body form)
+  (let ((form (if (member '<...> form)
+		  (if (eq '<...> (car (last form)))
+		      `(apply (function ,(car form)) ,@(cdr form))
+		      (error "CUT:found garbage in lambda list when expecting a `<...>': ~S" (car (last form))))
+		  form))
+	(result)
+	(gss))
+    (dolist (item form `(lambda ,(nreverse gss) ,(nreverse result)))
+      (case item
+	(<> 
+	 (let ((gs (gensym)))
+	   (push gs result)
+	   (push gs gss)))
+	(<...> 
+	 (let ((gs (gensym)))
+	   (push gs result)
+	   (push '&rest gss)
+	   (push gs gss)))
+	(cut)
+	(otherwise
+	 (push item result))))))
+
+(defmacro cute (&body form)
+  (let ((form (if (member '<...> form)
+		  (if (eq '<...> (car (last form)))
+		      `(apply (function ,(car form)) ,@(cdr form))
+		      (error "CUT:found garbage in lambda list when expecting a `<...>': ~S" (car (last form))))
+		  form))
+	(result)
+	(gss)    
+	(binds))
+    (dolist (item form `(let ,binds (lambda ,(nreverse gss) ,(nreverse result))))
+      (case item
+	(<> 
+	 (let ((gs (gensym)))
+	   (push gs result)
+	   (push gs gss)))
+	(<...>
+	 (let ((gs (gensym)))
+	   (push gs result)
+	   (push '&rest gss)
+	   (push gs gss)))
+	(cut)
+	(otherwise
+	 (if (symbolp item)
+	     (push item result)
+	     (let ((gs (gensym)))
+	       (push `(,gs ,item) binds)
+	       (push gs result))))))))
