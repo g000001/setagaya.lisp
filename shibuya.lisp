@@ -22,10 +22,27 @@
            :defun#
            :defmacro#
            :define-layered-package
-           ))
+           :zap))
 
 
 (in-package :sl)
+
+;; Compile時定義でも効くdefun
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmacro defun-compile-time (function-name lambda-list &body body)
+    `(eval-when (:compile-toplevel :load-toplevel :execute)
+       (cl:defun ,function-name ,lambda-list ,@body)
+       #-(or akcl harlequin-common-lisp)
+       (eval-when (:compile-toplevel) (compile ',function-name)))))
+
+;; Arcより
+(defmacro zap (op place &rest args)
+  `(setf ,place (apply (function ,op) ,place (LIST ,@args))))
+
+;(LET ((X 1))
+;  (ZAP 1+ X)
+;  X)
+;=> 2
 
 ;; TAOより拝借
 ;; (list 'a 'b 'c 'd)などと書くのが面倒だと思ったときに
@@ -137,7 +154,7 @@
 ;;         (SELF (- N 2)))))
 
 
-(defun flatten (lis)
+(defun-compile-time flatten (lis)
   (cond ((atom lis) lis)
         ((listp (car lis))
          (append (flatten (car lis)) (flatten (cdr lis))))
@@ -156,14 +173,14 @@
                       KEYS))
        ,@BODY)))
 
-(DEFUN COLLECT-KEYWORD-SYMBOL (LIST)
+(DEFUN-COMPILE-TIME COLLECT-KEYWORD-SYMBOL (LIST)
   (REMOVE-DUPLICATES
    (REMOVE-IF-NOT #'KEYWORDP (FLATTEN LIST))))
 
 
 ;; 変なlet(destructuring-bind)
 ;; http://cadr.g.hatena.ne.jp/g000001/20090928/1254067317
-(DEFMACRO BIND (&BODY BODY)
+(DEFMACRO BINDK (&BODY BODY)
   (DO ((BODY BODY (CDDR BODY))
        (BINDS () (DESTRUCTURING-BIND (VAR VAL &REST IGNORE) BODY
                    (DECLARE (IGNORE IGNORE))
@@ -237,7 +254,7 @@
 ;; do#
 ;; びっくりするほど使えないマクロ
 ;; http://cadr.g.hatena.ne.jp/g000001/20090228/1235760220
-(defun car-safe (form)
+(defun-compile-time car-safe (form)
   (if (consp form)
       (car form)
       form))
@@ -353,3 +370,478 @@
                      (setf (symbol-value sym) (symbol-value x)))
                    (setf (symbol-plist sym) (symbol-plist x)))))))
         `(DEFPACKAGE ,name ,@args))))
+
+;; MDLのmapf
+;; http://cadr.g.hatena.ne.jp/g000001/20081020/1224431259
+(PROGN
+  (defun mapleave (&optional vals)
+    (throw '#0=(gensym "MAPFLEAVE-") vals))
+
+  (defun mapstop (&rest vals)
+    (throw '#1=(gensym "MAPSTOP-") (copy-list vals)))
+
+  (defun mapret (&rest vals)
+    (throw '#2=(gensym "MAPRET-") (copy-list vals)))
+
+  (defun mapf (finalf loopf &rest lists)
+    ;; mapleave
+    (catch '#0#
+      (prog* ((lists (copy-tree lists)) 
+              (len (length lists))
+              (ans (list :ans))
+              (tem ans))
+       :top  (when (some #'endp lists) (go :fin))
+             (progn
+               ;; mapstop
+               (setf (cdr tem)
+                 (catch '#1#
+                   ;; mapret
+                   (setf (cdr tem)
+                         (catch '#2#
+                           ;; nomal
+                           (setf (cdr tem)
+                                 (list
+                                  (apply loopf (and lists 
+                                                    (mapcar #'car lists)))))
+                           (or finalf (go :esc)) ;finalf?
+                           (setf tem (cdr tem))
+                           (go :esc)))
+                   (setf tem (last tem))
+                   (go :esc)))
+               (setf tem (last tem))
+               (go :fin))
+       :esc  (dotimes (i len) (pop (nth i lists)))
+         (go :top)
+       :fin  (return (and finalf (apply finalf (cdr ans))))))))
+
+;; Example 
+;; (defmacro once-only ((&rest vars) &body body)
+;;   (mapf (lambda (&rest arg)
+;;           `(let ,(mapcar #'first arg)
+;;              (let ,(mapcar (lambda (x) `(,(second x) (gensym))) arg)
+;;                `(let (,,@(mapcar #'third arg))
+;;                   ,,@body))))
+;;         (lambda (v &aux (g (gensym)))
+;;           `((,g ,v) ,v `(,,v ,,g)))
+;;         vars))
+
+;; (defun mappend (fn &rest lists)
+;;   (apply #'mapf #'append fn lists))
+
+;; (defun first-nonzero (list)
+;;   (mapf ()
+;;         (lambda (x)
+;;           (when (not (zerop x)) (mapleave x)))
+;;         list))
+
+;; (first-nonzero '(0 0 0 0 9 0 0))
+;; ;=> 9
+
+;; (defun odd-list (list)
+;;   (mapf #'list
+;;         (lambda (x) (if (oddp x)
+;;                         x
+;;                         (mapret)))
+;;         list))
+
+;; (odd-list '(1 2 3 4 5))
+;; ;=> (1 3 5)
+
+;; (defun odd-list2 (list)
+;;   (mapf #'list
+;;         (lambda (x) (if (oddp x)
+;;                         x
+;;                         (mapret 'e 'ven)))
+;;         list))
+
+;; (odd-list2 '(1 2 3 4 5))
+;; ;=> (1 E VEN 3 E VEN 5)
+
+;; (defun first-ten (list)
+;;   (let ((cnt 10))
+;;     (mapf #'list
+;;           (lambda (x)
+;;             (when (zerop (decf cnt)) (mapstop 10))
+;;             x)
+;;           list)))
+
+;; (first-ten '(1 2 3 4 5 6 7 8 9 10 11 12))
+;; ;=> (1 2 3 4 5 6 7 8 9 10)
+
+;; (defun lnum (n &aux (cnt 0))
+;;   (mapf #'list
+;;         (lambda ()
+;;           (if (<= n (incf cnt))
+;;               (mapstop n)
+;;               cnt))))
+;; ;=> (lnum 10)
+;; (1 2 3 4 5 6 7 8 9 10)
+
+;; L4u的
+;; http://cadr.g.hatena.ne.jp/g000001/20081018/1224341021
+(defmacro with-l4u (&body body)
+  `(let (it)
+     (macrolet ((-> (fn &rest args)
+                  `(apply #',fn it ',args)))
+       ,@(mapcar (lambda (x)
+                   `(setq it ,x))
+                 body))))
+;(with-l4u
+;  4
+;  (-> print)
+;  (-> list :foo :bar :baz)
+;  (print it))
+; 
+;>>> 4 
+;>>> (4 :FOO :BAR :BAZ) 
+
+;; lisp1的
+;; http://cadr.g.hatena.ne.jp/g000001/20081015/1224023297
+(defmacro with-lisp1 (&body body)
+  (let ((syms (remove-if-not (lambda (x) 
+                               (and (symbolp x) 
+                                    (fboundp x)
+                                    (not (eq 'quote x))))
+                             (flatten body))))
+    `(let ,(mapcar (lambda (x) `(,x (symbol-function ',x))) syms)
+       (declare (ignorable ,@syms))
+       ,@body)))
+
+;; ;; 動作
+;; (with-lisp1
+;;   (mapcar 1+ '(1 2 3 4)))
+;; ;=> (2 3 4 5)
+
+;; (with-lisp1 
+;;   (sort (list 38 29 3 1) <))
+
+;; ;=> (1 3 29 38)
+
+
+;; TAOの!(論理関数のOR) 勘違い実装編
+;; http://cadr.g.hatena.ne.jp/g000001/20081013/1223860187
+(defmacro ! (&body forms)
+  (let ((aux-vars (and (consp (car forms))
+                       (string-equal '&aux (string (caar forms)))
+                       (prog1 (cdar forms) (pop forms))))
+        (exit (gensym "EXIT-")))
+    (cl:loop 
+       :with cuts 
+       :and tags := (list exit)
+       :and body 
+       :and ans := (gensym "ANS-")
+
+       :for x :in forms
+       :if (and (symbolp x) (string-equal '! x))
+       :do (progn
+             (push (gensym "CUT-") cuts)
+             (push `(if ,(car cuts) (go ,exit) (setq ,(car cuts) t))
+                   (cdr body)))
+       :else 
+       :do (progn
+             (push (gensym "TAG-") tags)
+             (push (car tags) body)
+             (push `(and (setq ,ans ,x) (go ,(cadr tags))) body))
+       :finally (return `(prog* (,ans ,@aux-vars ,@cuts)
+                            ,@(nreverse body)
+                            ,exit
+                            (return ,ans))))))
+
+;; (! (&aux (foo 0) result)
+;;    result
+;;    (= foo 100)
+;;    (progn (incf foo) 
+;;           (zap append result (list foo))))
+;; ;=> (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29
+;;  30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55
+;;  56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81
+;;  82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100)
+
+;; symbol-macroletで添字
+;; http://cadr.g.hatena.ne.jp/g000001/20081001/1222849105
+;; ;; 添字
+;; (let ((foo '(1 2 3 4)))
+;;   (symbol-macrolet ((foo[1] (nth 0 foo))
+;;                     (foo[2] (nth 1 foo))
+;;                     (foo[3] (nth 2 foo))
+;;                     (foo[4] (nth 3 foo))
+;;                     (foo[5] (nth 4 foo))
+;;                     (foo[6] (nth 5 foo))
+;;                     (foo[7] (nth 6 foo)))
+;;     (list foo[2] foo[3] foo[1])))
+;; ;=> (2 3 1)
+
+;; ;; ハッシュ
+;; (let ((ht (make-hash-table)))
+;;   (setf (gethash :foo ht) 30)
+;;   (symbol-macrolet ((ht[foo] (gethash :foo ht)))
+;;     (setf ht[foo] 40)
+;;     ht[foo]))
+;; ;=> 40 , T
+
+(defun-compile-time mappend (func seq)
+  (apply #'append (mapcar func seq)))
+
+;; with-l/ists
+;; 無茶苦茶なアイデア
+;; http://cadr.g.hatena.ne.jp/g000001/20081001/1222847841
+(defun-compile-time symbol-car (sym)
+  (intern (subseq (string sym) 0 1)))
+(defun-compile-time symbol-cdr (sym)
+  (intern (subseq (string sym) 1)))
+
+(defmacro with-l/ists ((&rest lists) &body body)
+  (let ((xx (mappend (lambda (x)
+                         `((,(symbol-car x) (car ,x))
+                           (,(symbol-cdr x) (cdr ,x))))
+                       lists)))
+    `(symbol-macrolet ,xx
+       ,@body)))
+
+;; (LET ((FOO '(1 2 3 4)))
+;;   (WITH-L/ISTS (FOO)
+;;     (LIST F OO)))
+;=> (1 (2 3 4))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defparameter *fn*
+    '(car cdr rest first second third forth fifth sixth seventh eighth ninth tenth 
+      reverse length null gensym 1+ 1-)))
+
+(defmacro with-dot-concat ((&rest args) &body body)
+  (let ((xx (mappend (lambda (y)
+                         (mapcar (lambda (x)
+                                   `(,(symb x "." y) (,x ,y))) *fn*))
+                       args)))
+    `(symbol-macrolet ,xx
+       ,@body)))
+
+(defmacro with-dot-concat-reverse ((&rest args) &body body)
+  (let ((xx (mappend (lambda (y)
+                         (mapcar (lambda (x)
+                                   `(,(symb y "." x) (,x ,y))) *fn*))
+                       args)))
+    `(symbol-macrolet ,xx
+       ,@body)))
+
+;; (defun encode-direct (coll &aux (g "G"))
+;;   (with-dot-concat (coll tem g acc cnt reverse.acc)
+;;     (if null.coll
+;;         ()
+;;         (labels ((recur (coll tem acc)
+;;                    (let ((cnt first.tem) (item second.tem))
+;;                      (cond (null.coll cdr.reverse.acc)
+;;                            ((eql car.coll item)
+;;                             (recur cdr.coll (list 1+.cnt car.coll) acc))
+;;                            (:else
+;;                             (recur cdr.coll 
+;;                                    `(1 ,car.coll)
+;;                                    (cons (if (= 1 cnt)
+;;                                              item
+;;                                              tem)
+;;                                          acc)))))))
+;;           (recur `(,@coll ,gensym.g)
+;;                  `(1 ,gensym.g)
+;;                  () )))))
+
+;; (ENCODE-DIRECT '(1 2 3 4 5 8 8))
+;; ;=> (1 2 3 4 5 (2 8))
+
+;; anaphoric destructuring-bind
+;; http://cadr.g.hatena.ne.jp/g000001/20080930/1222765327
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defvar *anaphoras*
+    '(car cdr rest 
+      first second third forth fifth sixth seventh eighth ninth tenth)))
+
+(defmacro adestructuring-bind (list &body body)
+  (let ((anaphoras (mapcar (lambda (x) `(,x (,x ,list))) *anaphoras*)))
+    `(symbol-macrolet ,anaphoras
+       ,@body)))
+
+;; (let ((foo (list 1 2 3 4)))
+;;   (adestructuring-bind foo
+;;     (list (car foo)
+;;           (funcall #'car cdr)
+;;           cdr
+;;           first
+;;           second
+;;           (setq car 'alt)
+;;           foo)))
+;=> (1 2 (2 3 4) 1 2 ALT (ALT 2 3 4))
+
+;; tconc
+;; http://cadr.g.hatena.ne.jp/g000001/20080611/1213160047
+(defun TCONC (ptr x)
+  (declare (list ptr))
+  (let ((x (list x)))
+    (if (null ptr)
+        (cons x x)
+        (progn (psetf (cddr ptr) x             
+                      (cdr ptr) x)
+               ptr))))
+
+(defun LCONC (ptr x)
+  (declare (cons ptr x))
+  (let ((last (last x)))
+    (rplaca ptr (nconc (car ptr) x))
+    (rplacd ptr last)))
+
+(defun ATTACH (x y)
+  (declare (cons y))
+  (let ((ptr y)
+        (tail (cons (car y) (cdr y))))
+    (setf (car ptr) x
+          (cdr ptr) tail)
+    ptr))
+
+;; ;; tconcの動作
+;; (loop :with start := 1 :and end := 10
+;;       :with tc := (tconc () start)
+;;       :for i :from (1+ start) :to end :do (tconc tc i) 
+;;       :finally (return (car tc)))
+
+;; ;==> (1 2 3 4 5 6 7 8 9 10)
+
+;; ;; lconcの動作
+;; (loop :with start := 1 :and end := 10
+;;       :with lc := (lconc (list ()) (list start))
+;;       :for i :from (1+ start) :to end :do (lconc lc (list i)) 
+;;       :finally (return (car lc)))
+
+;; ;==> (1 2 3 4 5 6 7 8 9 10)
+
+;; ;; attachの動作
+;; (setq foo (list 100))
+
+;; (eq foo (attach 0 foo))
+;; ;==> T
+
+;; foo
+;; ;==> (0 100)
+
+;; generic-function
+;;http://cadr.g.hatena.ne.jp/g000001/20080521/1211341393
+
+
+;; (Gauche)isomorphic?
+;; http://cadr.g.hatena.ne.jp/g000001/20080512/1210584057
+
+;;(let ((p (cons 1 2)))
+;;  (isomorphic? (list p p) (list p '(1 2))))
+;;;=> nil
+;;
+;;(let ((p (cons 1 2)))
+;;  (isomorphic? (list p p) (list p p)))
+;;;=> t
+;;
+;;(let ((p (make-array 100 :fill-pointer 1 :adjustable 'T)))
+;;  (vector-push 1 p)
+;;  (isomorphic? p (vector 0 (+ 0 1))))
+;;;=> t
+
+(defun ISOMORPHIC? (a b &rest args)
+  (let ((ctx (if (consp args)
+                 (if (hash-table-p (car args))
+                     (car args)
+                     (error "hash table required, but got ~S." (car args)))
+                 (make-hash-table))))
+    (ISO? a b ctx)))
+
+(defun ISO? (a b ctx)
+  (let (win tem)
+    (cond ((or (characterp a) (numberp a))
+           (eql a b))
+          ((null a) (null b))
+          ((progn (setf (values tem win) (gethash a ctx))
+                  win) ;node has been appeared
+           (eq tem b))
+          (:else
+           (setf (gethash a ctx) b)
+           (typecase a
+             (cons (and (consp b)
+                        (iso? (car a) (car b) ctx)
+                        (iso? (cdr a) (cdr b) ctx)))
+             (string (and (stringp b) (string= a b)))
+             (keyword (eql a b))
+             (symbol (eq a b))
+             (vector (VECTOR-ISO? a b ctx))
+             (otherwise (OBJECT-ISOMORPHIC? a b ctx)))))))
+
+(progn
+  (declaim (inline vector->list))
+  (defun VECTOR->LIST (vec) (coerce vec 'list)))
+
+(defun VECTOR-ISO? (a b ctx)
+  (and (vectorp b)
+       (do ((la (vector->list a) (cdr la))
+            (lb (vector->list b) (cdr lb)))
+           ((endp la) (endp lb))
+         (cond ((endp lb) (return nil))
+               ((ISO? (car la) (car lb) ctx))
+               (:else (return nil))))))
+
+(defmethod OBJECT-ISOMORPHIC? (a b context)
+  (equal a b))
+
+
+;; multiple-value-do
+;; http://cadr.g.hatena.ne.jp/g000001/20080322/1206160599
+(defmacro MULTIPLE-VALUE-DO ((&rest varlist) (test &rest finally) &body body)
+  (let ((vars (mappend #'car varlist))
+        (inits (mappend #'cadr varlist))
+        (tag (gensym)))
+    `(BLOCK NIL
+       (MULTIPLE-VALUE-BIND ,vars ,inits
+         (TAGBODY
+            (MULTIPLE-VALUE-PSETQ ,@(mappend (fn ((x y z)) `(,x ,y))
+                                             varlist))
+       ,tag (WHEN ,test
+              (RETURN-FROM NIL (PROGN ,@finally)))
+            ,@body
+            (MULTIPLE-VALUE-PSETQ ,@(mappend (fn ((x y z)) `(,x ,z))
+                                             varlist))
+            (GO ,tag))))))
+
+(defmacro FN ((&rest args) &body body) ;; Arcから拝借
+  (let ((g (gensym)))
+    `(LAMBDA (&rest ,g)
+       (DESTRUCTURING-BIND ,args ,g
+         (DECLARE (IGNORABLE ,@(flatten args)))
+         ,@body))))
+
+(defun MAPPEND (fn &rest lists)
+  (reduce #'append (apply #'mapcar fn lists)))
+
+(defmacro MULTIPLE-VALUE-PSETQ (&rest pairs)
+  (cond ((cddr pairs) `(SETF (VALUES ,@(car pairs))
+                             (MULTIPLE-VALUE-PROG1 ,(cadr pairs)
+                               (MULTIPLE-VALUE-PSETQ ,@(cddr pairs)))))
+        ((cdr pairs) `(SETF (VALUES ,@(car pairs)) ,@(cdr pairs)))
+        ('T (error "Odd number of args."))))
+
+;; onep
+;; http://cadr.g.hatena.ne.jp/g000001/20080301/1204336099
+(DEFUN ONEP (X)
+  (= 1 X))
+
+;; wget
+;; http://cadr.g.hatena.ne.jp/g000001/20080224/1203797398
+(defun wget (uri &optional (dir "./"))
+  (let* ((file-name (aref (nth-value 1 (ppcre:scan-to-strings ".*/([^/]*)$" uri)) 0))
+	 (out-file (concatenate 'string dir file-name)))
+    (format t "~A ==> ~A~%" uri out-file)
+    (with-open-file (out out-file
+			 :direction :output 
+			 :if-exists :supersede
+			 :element-type 'unsigned-byte)
+      (with-open-stream (str (drakma:http-request uri :want-stream 'T))
+	(do ((s (read-byte str nil -1) (read-byte str nil -1))
+	     (cnt 0 (1+ cnt)))
+	    ((= -1 s) (format t "end ~A.~%" cnt))
+	  (write-byte s out)
+	  (when (and (zerop (rem cnt 1024)) (not (zerop cnt)))
+	    (princ ".")
+	    (when (zerop (rem cnt (* 100 1024)))
+	      (format t "~A~%" cnt))))))))
+;; 2008-02-03
