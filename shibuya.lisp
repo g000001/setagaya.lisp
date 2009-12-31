@@ -810,9 +810,6 @@
          (DECLARE (IGNORABLE ,@(flatten args)))
          ,@body))))
 
-(defun MAPPEND (fn &rest lists)
-  (reduce #'append (apply #'mapcar fn lists)))
-
 (defmacro MULTIPLE-VALUE-PSETQ (&rest pairs)
   (cond ((cddr pairs) `(SETF (VALUES ,@(car pairs))
                              (MULTIPLE-VALUE-PROG1 ,(cadr pairs)
