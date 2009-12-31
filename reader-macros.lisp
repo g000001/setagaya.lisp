@@ -88,3 +88,32 @@
     (flet ((intern-upcase (str) (intern (string-upcase str))))
       `(gethash ',(intern-upcase (subseq str (1+ sep)))
 		,(intern-upcase (subseq str 0 sep))))))
+
+
+;; Gaucheの#?=
+;; http://cadr.g.hatena.ne.jp/g000001/20070917
+(defmacro debug-print (obj &optional name (stream *debug-io*))
+  `(let ((hr "** ----------------------------------------")
+	 (name (if ,name ,name 0)))
+     (format ,stream "~A~%** Debug: #~A | ~A => ~A | ~S~%~0@*~A~%" 
+	     hr name ',obj ,obj (type-of ,obj))
+     ,obj))
+
+(set-dispatch-macro-character #\# #\?
+                              (lambda (stream char arg)
+                                (declare (ignore char))
+                                (if (char= #\= (peek-char t stream))
+                                    (read-char stream))
+                                (list 'debug-print (read stream t nil t) arg t)))
+
+;; (DOTIMES (I 3) #77777?=I)
+;; ** ----------------------------------------
+;; ** Debug: #77777 | I => 0 | BIT
+;; ** ----------------------------------------
+;; ** ----------------------------------------
+;; ** Debug: #77777 | I => 1 | BIT
+;; ** ----------------------------------------
+;; ** ----------------------------------------
+;; ** Debug: #77777 | I => 2 | (INTEGER 0 1152921504606846975)
+;; ** ----------------------------------------
+;; ⇒ NIL
