@@ -46,7 +46,11 @@
            :multiple-value-psetq
            :onep
            :wget
-           :zap))
+           :zap
+           :update-alist
+           :plist-alist
+           :update-plist
+           :tail-recursive-defun))
 
 (in-package :sl)
 
@@ -877,4 +881,74 @@
 	    (when (zerop (rem cnt (* 100 1024)))
 	      (format t "~A~%" cnt))))))))
 
-;; 2008-02-03
+;; UPDATE-ALIST
+;; http://cadr.g.hatena.ne.jp/g000001/20091227/1261842492
+(DEFUN UPDATE-ALIST (AKEY VALUE ALIST &KEY (TEST #'EQL) (KEY #'IDENTITY))
+  (LET ((ELEM (ASSOC AKEY ALIST :TEST TEST :KEY KEY))
+        (VAL VALUE))
+    (COND (ELEM (SETF (CDR ELEM) VAL))
+          (ALIST (SETF (CDR (LAST ALIST)) (LIST (CONS AKEY VAL))))
+          (T (SETF ALIST (LIST (CONS AKEY VAL)))))
+    ALIST))
+
+;; PLIST-ALIST
+;; http://cadr.g.hatena.ne.jp/g000001/20091231/1262188881
+(DEFUN PLIST-ALIST (PLIST)
+  (LOOP :FOR (X Y) :ON PLIST :BY #'CDDR :COLLECT (CONS X Y))
+
+;; UPDATE-PLIST
+;; http://cadr.g.hatena.ne.jp/g000001/20100101/1262273843
+(DEFUN UPDATE-PLIST (PKEY VALUE PLIST &KEY (TEST #'EQL))
+  (IF (ENDP PLIST)
+      (LIST PKEY VALUE)
+      (DO ((PL PLIST (CDDR PL))
+           (TAIL NIL PL)
+           (MODIFYP NIL))
+          ((ENDP PL) (PROG1 PLIST
+                            (UNLESS MODIFYP 
+                              (NCONC TAIL (LIST PKEY VALUE)))))
+        (WHEN (FUNCALL TEST PKEY (CAR PL))
+          (SETF (CADR PL) VALUE
+                MODIFYP 'T)))))
+
+;; DEFUNの末尾再帰機能付き
+;; http://cadr.g.hatena.ne.jp/g000001/20080131/1201722804
+
+;; 動作
+;; (tail-recursive-defun fib (n &optional (a1 1) (a2 0)) 
+;;   (if (< n 2)
+;;       a1
+;;       (fib (1- n) (+ a1 a2) a1)))
+
+;; 関数呼び出し部分をgo-to付きのlambda式で置き換え
+(defun-compile-time fn-to-lambda (new old expr)
+  (flet ((self (x) (fn-to-lambda new old x)))
+    (cond ((atom expr) expr)
+	  ((and (consp expr) (eq (car expr) old))
+	   (cons new (mapcar #'self (cdr expr))))
+	  ('T (cons (funcall #'self (car expr)) (mapcar #'self (cdr expr)))))))
+
+;; 関数をgo-to付きのlambda式に変換
+(defun-compile-time funcall-to-goto (args gotag)
+  (let ((syms (mapcar (lambda (x) `(,x ,(gensym))) args)))
+    `(lambda ,(mapcar #'cadr syms) (setq ,@(mapcan #'identity syms)) (go ,gotag))))
+
+;; 余計なパラメータを削除
+(defun-compile-time remove-&param (expr)
+  (mapcar (lambda (x) (if (consp x) (car x) x))
+	  (remove-if (lambda (x) (member x '(&optional &rest &key))) expr)))
+
+;; 本体
+(defmacro tail-recursive-defun (name args &body body)
+  (let ((go-tag (gensym))
+	(decl (if (eq 'declare (and (consp (car body)) (caar body)))
+		  `(,(pop body))
+		  ())))
+    `(defun ,name ,args
+       ,@decl
+       (prog ()
+	  ,go-tag
+	  (return
+	    ,@(fn-to-lambda (funcall-to-goto (remove-&param args) go-tag) name 
+			    body))))))
+
