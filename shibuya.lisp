@@ -894,7 +894,7 @@
 ;; PLIST-ALIST
 ;; http://cadr.g.hatena.ne.jp/g000001/20091231/1262188881
 (DEFUN PLIST-ALIST (PLIST)
-  (LOOP :FOR (X Y) :ON PLIST :BY #'CDDR :COLLECT (CONS X Y))
+  (LOOP :FOR (X Y) :ON PLIST :BY #'CDDR :COLLECT (CONS X Y)))
 
 ;; UPDATE-PLIST
 ;; http://cadr.g.hatena.ne.jp/g000001/20100101/1262273843
@@ -951,4 +951,34 @@
 	  (return
 	    ,@(fn-to-lambda (funcall-to-goto (remove-&param args) go-tag) name 
 			    body))))))
+
+;; WITH-NREVERSE
+(DEFMACRO WITH-NREVERSE ((&REST VARS) &BODY BODY)
+  `(LET (,@VARS)
+     ,@BODY
+     (VALUES ,@(MAPCAR (LAMBDA (X) `(NREVERSE ,X)) VARS))))
+
+;; (WITH-NREVERSE (ANS)
+;;   (DOTIMES (I 10)
+;;     (PUSH I ANS)))
+;; ⇒ (0 1 2 3 4 5 6 7 8 9)
+
+(defun FILE-EXTRACT-DEFS (file)
+  (with-open-file (in file :direction :input)
+    (do ((s (read in nil :eof) (read in nil :eof))
+	 names)
+	((eql :eof s) (sort names #'string-lessp))
+        (if (member (if (atom s) s (car s)) 
+                    '(defun defmacro defconstant defalias mac)
+                    :test #'string-equal)
+            (push (make-symbol (string (cadr s))) names)))))
+
+;; (FILE-EXTRACT-DEFS "shibuya.lisp/shibuya.lisp")
+;; ⇒ (#:! #:|*DEFMACRO/#| #:ADEFUN #:ADESTRU ... )
+
+;; http://lib.store.yahoo.net/lib/paulgraham/utx.lisp
+(defun carat (x)
+  (if (consp x) (car x) x))
+
+
 
