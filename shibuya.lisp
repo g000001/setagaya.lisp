@@ -22,12 +22,36 @@
            :defun#
            :defmacro#
            :define-layered-package
+           :mapleave
+           :mapstop
+           :mapret
+           :mapf
+           :with-l4u
+           :with-lisp1
+           :!
+           :with-l/ists
+           :with-dot-concat
+           :with-dot-concat-reverse
+           :adestructuring-bind
+           :tconc
+           :lconc
+           :attach
+           :isomorphic?
+           :iso?
+           :vector->list
+           :vector-iso?
+           :object-isomorphic?
+           :multiple-value-do
+           :fn
+           :multiple-value-psetq
+           :onep
+           :wget
            :zap))
-
 
 (in-package :sl)
 
 ;; Compile時定義でも効くdefun
+;; iterateより拝借
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro defun-compile-time (function-name lambda-list &body body)
     `(eval-when (:compile-toplevel :load-toplevel :execute)
@@ -259,7 +283,7 @@
       (car form)
       form))
 
-(defun reduce-unintern-sym (sym expr wo)
+(defun-compile-time reduce-unintern-sym (sym expr wo)
   (subst sym sym
          expr
          :test (lambda (x y)
