@@ -67,13 +67,13 @@
          args))
 
 ;; 例. 遅い
-(flet ((fibf (f)
+#|(flet ((fibf (f)
          (lambda (n)
            (if (< n 2)
                1
                (+ (funcall f (1- n))
                   (funcall f (- n 2)))))))
-  (ycall #'fibf 39))
+  (ycall #'fibf 39))|#
 ;⇒ 102334155
 ;----------
 ;(FLET ((FIBF (F) (LAMBDA (N) (IF (< N 2) 1 (+ (FUNCALL F (1- N)) (FUNCALL F (- N 2))))))) (DECLARE (FTYPE (FUNCTION (FUNCTION) FUNCTION) FIBF)) (YCALL #'FIBF 39)) took 66,643,181 microseconds (66.643180 seconds) to run 
@@ -844,4 +844,5 @@
 	    (princ ".")
 	    (when (zerop (rem cnt (* 100 1024)))
 	      (format t "~A~%" cnt))))))))
+
 ;; 2008-02-03
