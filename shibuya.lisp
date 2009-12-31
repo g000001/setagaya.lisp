@@ -50,7 +50,10 @@
            :update-alist
            :plist-alist
            :update-plist
-           :tail-recursive-defun))
+           :tail-recursive-defun
+           :with-nreverse
+           :carat
+           :file-extract-defs))
 
 (in-package :sl)
 
