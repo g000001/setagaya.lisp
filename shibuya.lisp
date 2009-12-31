@@ -1,4 +1,4 @@
-(defpackage :shibuya.lisp
+(defpackage :shibuya.lisp 
   (:use :cl)
   (:nicknames :sl)
   (:export :listq
@@ -609,6 +609,17 @@
 ;; with-l/ists
 ;; 無茶苦茶なアイデア
 ;; http://cadr.g.hatena.ne.jp/g000001/20081001/1222847841
+
+;; On Lispより
+(defun-compile-time symb (&rest args)
+  "creates a new symbol from args"
+  (values (intern (apply #'mkstr args))))
+
+(defun-compile-time mkstr (&rest args)
+  "writes args into a string and returns that string"
+  (with-output-to-string (s)
+    (dolist (a args) (princ a s))))
+
 (defun-compile-time symbol-car (sym)
   (intern (subseq (string sym) 0 1)))
 (defun-compile-time symbol-cdr (sym)
