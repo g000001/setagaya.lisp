@@ -51,7 +51,7 @@
            :plist-alist
            :update-plist
            :tail-recursive-defun
-           :with-nreverse
+           :let-nreverse
            :carat
            :file-extract-defs))
 
@@ -955,16 +955,16 @@
 	    ,@(fn-to-lambda (funcall-to-goto (remove-&param args) go-tag) name 
 			    body))))))
 
-;; WITH-NREVERSE
-(DEFMACRO WITH-NREVERSE ((&REST VARS) &BODY BODY)
+;; LET-NREVERSE
+(DEFMACRO LET-NREVERSE ((&REST VARS) &BODY BODY)
   `(LET (,@VARS)
      ,@BODY
-     (VALUES ,@(MAPCAR (LAMBDA (X) `(NREVERSE ,X)) VARS))))
+     (VALUES ,@(MAPCAR (LAMBDA (X) `(NREVERSE ,(CAR-SAFE X))) VARS))))
 
-;; (WITH-NREVERSE (ANS)
+;; (LET-NREVERSE ((ANS (LIST :START)))
 ;;   (DOTIMES (I 10)
 ;;     (PUSH I ANS)))
-;; ⇒ (0 1 2 3 4 5 6 7 8 9)
+;; ⇒ (:START 0 1 2 3 4 5 6 7 8 9)
 
 (defun FILE-EXTRACT-DEFS (file)
   (with-open-file (in file :direction :input)
