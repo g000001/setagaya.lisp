@@ -4,4 +4,5 @@
 (asdf:defsystem :shibuya.lisp
   :name "shibuya.lisp"
   :depends-on (:cl-ppcre :drakma)
-  :components ((:file "shibuya")))
+  :components ((:file "packages")
+               (:file "shibuya" :depends-on ("packages"))))

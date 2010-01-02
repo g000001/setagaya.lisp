@@ -1,60 +1,3 @@
-(defpackage :shibuya.lisp 
-  (:use :cl)
-  (:nicknames :sl)
-  (:export :listq
-           :ycomb
-           :ycall
-           :cut
-           :cute
-           :<>
-           :<...>
-           :adefun
-           :self
-           :with-keyword-function
-           :bind
-           :fvlet
-           :nalist-to-plist
-           :nplist-to-alist
-           :do#
-           :lambda#
-           :bind#
-           :let#
-           :defun#
-           :defmacro#
-           :define-layered-package
-           :mapleave
-           :mapstop
-           :mapret
-           :mapf
-           :with-l4u
-           :with-lisp1
-           :!
-           :with-l/ists
-           :with-dot-concat
-           :with-dot-concat-reverse
-           :adestructuring-bind
-           :tconc
-           :lconc
-           :attach
-           :isomorphic?
-           :iso?
-           :vector->list
-           :vector-iso?
-           :object-isomorphic?
-           :multiple-value-do
-           :fn
-           :multiple-value-psetq
-           :onep
-           :wget
-           :zap
-           :update-alist
-           :plist-alist
-           :update-plist
-           :tail-recursive-defun
-           :let-nreverse
-           :carat
-           :file-extract-defs))
-
 (in-package :sl)
 
 ;; Compile時定義でも効くdefun
@@ -939,7 +882,7 @@
 ;; 余計なパラメータを削除
 (defun-compile-time remove-&param (expr)
   (mapcar (lambda (x) (if (consp x) (car x) x))
-	  (remove-if (lambda (x) (member x '(&optional &rest &key))) expr)))
+	  (remove-if (lambda (x) (member x lambda-list-keywords)) expr)))
 
 ;; 本体
 (defmacro tail-recursive-defun (name args &body body)
@@ -979,9 +922,59 @@
 ;; (FILE-EXTRACT-DEFS "shibuya.lisp/shibuya.lisp")
 ;; ⇒ (#:! #:|*DEFMACRO/#| #:ADEFUN #:ADESTRU ... )
 
-;; http://lib.store.yahoo.net/lib/paulgraham/utx.lisp
-(defun carat (x)
-  (if (consp x) (car x) x))
+;; On Lispより
+(defun-compile-time group (source n)
+  "groups every n elements together into new sublists.
+   e.g. (group '(1 a 2 b) 2) -> ((1 a) (2 b))"
+  (when (zerop n) (error "zero length"))
+  (labels ((rec (source acc)
+	     (let ((rest (nthcdr n source)))
+	       (if (consp rest)
+		   (rec rest (cons (subseq source 0 n) acc))
+		   (nreverse (cons source acc))))))
+    (if source
+	(rec source nil)
+	nil)))
 
+;; 
+;; Clojure 1.1のDO-TEMPLATEのまね
+;; http://vimeo.com/channels/fulldisclojure
+;; 
+(DEFUN-COMPILE-TIME SUBST* (NEWS OLDS TREE &KEY (TEST #'EQL TESTP) 
+                                   (TEST-NOT #'EQL NOTP))
+  (WHEN (AND TESTP NOTP)
+    (ERROR ":TEST and :TEST-NOT were both supplied."))
+  (LET ((NEW (CAR NEWS))
+        (OLD (CAR OLDS)))
+    (IF (OR (ENDP NEWS) (ENDP OLDS))
+        TREE
+        (SUBST* (CDR NEWS)
+                (CDR OLDS)
+                (APPLY #'SUBST
+                       NEW
+                       OLD
+                       TREE 
+                       (IF NOTP 
+                           (LIST :TEST-NOT TEST-NOT)
+                           (LIST :TEST TEST)))))))
 
+(DEFMACRO DO-TEMPLATE ((&REST VARS) EXPR &REST VALS)
+  (LET* ((LEN (LENGTH VARS))
+         (VALS-LIST (GROUP VALS LEN)))
+    `(LIST
+       ,@(MAPCAR (CUT SUBST* <> VARS EXPR)
+                 VALS-LIST))))
 
+;; (DO-TEMPLATE (NAME ADD)
+
+;;   (DEFUN NAME (N)
+;;     (+ N ADD))
+  
+;;   FOO 2
+;;   BAR 3
+;;   BAZ 4)
+;; =>
+;; (LIST 
+;;  (DEFUN FOO (N) (+ N 2))
+;;  (DEFUN BAR (N) (+ N 3))
+;;  (DEFUN BAZ (N) (+ N 4)))
