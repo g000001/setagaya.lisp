@@ -304,7 +304,7 @@
                    :initial-value body)))))
 
 (defmacro defmacro# (name args &rest body)
-  (let* ((os (remove-if #'symbol-package args))
+  (let* ((os (remove-if #'symbol-package (flatten args)))
          (gs (mapcar #'copy-symbol os)))
     `(*defmacro/# ,os ,name ,args
        `(let ,(mapcar #'list (list ,@gs) (list ,@os))
@@ -804,7 +804,7 @@
 
 ;; onep
 ;; http://cadr.g.hatena.ne.jp/g000001/20080301/1204336099
-(DECLARE (INLINE ONEP))
+(DECLAIM (INLINE ONEP))
 (DEFUN ONEP (X) (= 1 X))
 
 ;; wget
