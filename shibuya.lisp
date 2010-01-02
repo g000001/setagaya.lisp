@@ -804,8 +804,8 @@
 
 ;; onep
 ;; http://cadr.g.hatena.ne.jp/g000001/20080301/1204336099
-(DEFUN ONEP (X)
-  (= 1 X))
+(DECLARE (INLINE ONEP))
+(DEFUN ONEP (X) (= 1 X))
 
 ;; wget
 ;; http://cadr.g.hatena.ne.jp/g000001/20080224/1203797398
@@ -941,29 +941,23 @@
 ;; http://vimeo.com/channels/fulldisclojure
 ;; 
 (DEFUN-COMPILE-TIME SUBST* (NEWS OLDS TREE &KEY (TEST #'EQL TESTP) 
-                                   (TEST-NOT #'EQL NOTP))
+                                 (TEST-NOT #'EQL NOTP))
   (WHEN (AND TESTP NOTP)
     (ERROR ":TEST and :TEST-NOT were both supplied."))
-  (LET ((NEW (CAR NEWS))
-        (OLD (CAR OLDS)))
-    (IF (OR (ENDP NEWS) (ENDP OLDS))
-        TREE
-        (SUBST* (CDR NEWS)
-                (CDR OLDS)
-                (APPLY #'SUBST
-                       NEW
-                       OLD
-                       TREE 
-                       (IF NOTP 
-                           (LIST :TEST-NOT TEST-NOT)
-                           (LIST :TEST TEST)))))))
+  (IF (OR (ENDP NEWS) (ENDP OLDS))
+      TREE
+      (SUBST* (CDR NEWS) (CDR OLDS)
+              (APPLY #'SUBST (CAR NEWS) 
+                             (CAR OLDS)
+                             TREE 
+                             (IF NOTP 
+                                 (LIST :TEST-NOT TEST-NOT)
+                                 (LIST :TEST TEST))))))
 
 (DEFMACRO DO-TEMPLATE ((&REST VARS) EXPR &REST VALS)
-  (LET* ((LEN (LENGTH VARS))
-         (VALS-LIST (GROUP VALS LEN)))
-    `(LIST
-       ,@(MAPCAR (CUT SUBST* <> VARS EXPR)
-                 VALS-LIST))))
+  `(PROGN ,@(MAPCAR (CUT SUBST* <> VARS EXPR)
+                    (GROUP VALS (LENGTH VARS)))))
+
 
 ;; (DO-TEMPLATE (NAME ADD)
 
