@@ -54,8 +54,9 @@
            :update-plist
            :tail-recursive-defun
            :let-nreverse
-           :carat
            :file-extract-defs
            :group
            :subst*
-           :do-template))
+           :do-template
+           :$
+           :$*))

@@ -972,3 +972,70 @@
 ;;  (DEFUN FOO (N) (+ N 2))
 ;;  (DEFUN BAR (N) (+ N 3))
 ;;  (DEFUN BAZ (N) (+ N 4)))
+
+;; READ-STREAM-TO-STRING
+;; http://cadr.g.hatena.ne.jp/g000001/20100104/1262540544
+(DEFUN READ-STREAM-TO-STRING (IN)
+  (WITH-OUTPUT-TO-STRING (OUT)
+    (DO ((LINEL (MULTIPLE-VALUE-LIST (READ-LINE IN NIL))
+                (MULTIPLE-VALUE-LIST (READ-LINE IN NIL))))
+        ((NOT (CAR LINEL)))
+      (FORMAT OUT "~{~A~:[~%~;~]~}" LINEL))))
+
+;; 
+;; Gaucheの$
+;; http://practical-scheme.net/wiliki/wiliki.cgi?Gauche%3A%24
+;; 
+(DEFMACRO $ (&WHOLE ARGS &REST IGNORE)
+  (DECLARE (IGNORE IGNORE))
+  ($-PARSE ARGS))
+
+(DEFMACRO $* (&WHOLE ARGS &REST IGNORE)
+  (DECLARE (IGNORE IGNORE))
+  ($-PARSE ARGS))
+
+(DEFUN-COMPILE-TIME $-PARSE (ARG)
+  (LET ((PARTIAL? (EQUAL (LAST ARG) '($)))
+        (LAMBDA-ARG (GENSYM)))
+    (LABELS ((*F (ARG ACC)
+               (COND ((ENDP ARG) (REVERSE ACC))
+                     
+                     ((AND PARTIAL? (ENDP (CDR (MEMBER '$ ARG))))
+                      (LET ((ARG (BUTLAST ARG)))
+                        `(APPLY #',(CAR ARG) ,@(CDR ARG)
+                                ,@(CDR ACC) 
+                                ,LAMBDA-ARG)))
+
+                     ((EQL (CAR ARG) '$)
+                      `(,@(REVERSE ACC) ,(*F (CDR ARG) () )))
+                     
+                     ((EQL (CAR ARG) '$*)
+                      `(,@(REVERSE ACC)
+                          (APPLY #',(CADR ARG) ,@(*F (CDDR ARG) () ))))
+                     
+                     ('T (*F (CDR ARG) (CONS (CAR ARG) ACC))))))
+      (IF PARTIAL?
+          `(LAMBDA (&REST ,LAMBDA-ARG)
+             ,@(*F ARG () ))
+          (CAR (*F ARG () ))))))
+
+;(MAPCAR ($ INTERN $ MAKE-STRING 10 :INITIAL-ELEMENT $ CHARACTER $)
+;        '(A B C D E))
+;;⇒ (AAAAAAAAAA BBBBBBBBBB CCCCCCCCCC DDDDDDDDDD EEEEEEEEEE)
+;
+;(MAPCAR (CUT $ * 10 $ LENGTH $ STRING <>)
+;        '(A B C D E))
+;;⇒ (10 10 10 10 10)
+;
+;(MAPCAR ($ INTERN $ CONCATENATE 'STRING "FOO-" $ STRING $)
+;        '(A B C D E))
+;;⇒ (FOO-A FOO-B FOO-C FOO-D FOO-E)
+;
+;(MAPCAR ($* CONCATENATE 'STRING 
+;            $ MAPCAR #'PRINC-TO-STRING
+;            $ LIST 
+;            $)
+;        '(A B C D E)
+;        '(1 2 3 4 5)
+;        '(I II III IV V))
+;;⇒ ("A1I" "B2II" "C3III" "D4IV" "E5V")
