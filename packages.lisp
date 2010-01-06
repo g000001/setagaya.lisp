@@ -59,4 +59,5 @@
            :subst*
            :do-template
            :$
-           :$*))
+           :$*
+           :with-ca/dr))

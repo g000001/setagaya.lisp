@@ -328,7 +328,7 @@
   (let ((base (find :base args :key #'car-safe)))
     (if base
         `(PROG1
-           (defpackage ,name ,@(remove :base args :key #'zl:car-safe))
+           (defpackage ,name ,@(remove :base args :key #'car-safe))
            (eval-when (:compile-toplevel :load-toplevel :execute)
              (do-symbols (x (find-package ,(second base)))
                (when (eq (find-package ,(second base))
@@ -338,7 +338,7 @@
                      (if (macro-function x)
                          (setf (macro-function sym)
                                (macro-function x))
-                         (setf (symbol-function sym) 
+                         (setf (symbol-function sym)
                                (symbol-function x))))
                    (when (boundp x)
                      (setf (symbol-value sym) (symbol-value x)))
@@ -1039,3 +1039,11 @@
 ;        '(1 2 3 4 5)
 ;        '(I II III IV V))
 ;;⇒ ("A1I" "B2II" "C3III" "D4IV" "E5V")
+
+;; lisp2 ならではw
+(defmacro with-ca/dr (cons &body body)
+  (let ((ca/dr (gensym)))
+    `(let* ((,ca/dr ,cons)
+            (car (car ,ca/dr))
+            (cdr (cdr ,ca/dr)))
+       ,@body)))
