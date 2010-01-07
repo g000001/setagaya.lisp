@@ -1047,3 +1047,92 @@
             (car (car ,ca/dr))
             (cdr (cdr ,ca/dr)))
        ,@body)))
+
+;; TAOより
+;; http://www.nue.org/nue/tao/tao-manual/tao-i.txt
+(DEFUN INDEX (START END &OPTIONAL (INCREMENT 1))
+  "index                                  関数[#!expr]
+
+<説明>
+  形式 : index start end &opt increment
+start (数)で始まり end (数)で終わる数値リストを作成し、その結果を返す。
+その数値リストの要素の値は increment (数 : 既定値は 1)ずつ増していく。
+start が end より小さい場合、increment は正の数でなければならない。
+start が end より大きい場合、increment は負の数でなければならない。
+上記条件を満足しない場合、nil を返す。なお、for 関数において使用する
+場合、数値リストは実際には作られない。
+
+<例>
+        (index 1 5) -> (1 2 3 4 5)
+        (index 5 1) -> nil
+        (index 1 9 3) -> (1 4 7)
+        (index 10 0 -3) -> (10 7 4 1)
+        (index 1 5 -1) -> nil"
+  (WHEN (OR (AND (<= START END) (PLUSP INCREMENT))
+            (AND (>= START END) (MINUSP INCREMENT)))
+    (IF (PLUSP INCREMENT)
+        (DO ((N START (+ N INCREMENT))
+             (ANS () (CONS N ANS)))
+            ((> N END) (NREVERSE ANS)))
+        (DO ((N START (+ N INCREMENT))
+             (ANS () (CONS N ANS)))
+            ((< N END) (NREVERSE ANS))))))
+
+;; TAOより
+;; http://www.nue.org/nue/tao/tao-manual/tao-f.txt
+(DEFMACRO FOR (VAR LIST &BODY BODY)
+  "for                                    関数[#!subr]
+
+<説明>
+  形式 : for var list form1 form2  ... 
+form1 form2 ... を var を使って順に実行する。 var は list の各要素に
+逐次束縛されたものである。 form1 form2 ... は list の長さと同じ回数評価
+される。 nil を返す。
+
+<例>
+        (for i (index 60 80) (prins i)) -> <=>?@ABCDEFGHIJKLMNOP
+        				  nil"
+  (IF (EQL 'INDEX (CAR LIST))           ;(index)関数の呼び出しはせずマクロに展開
+      (LET ((START (GENSYM))
+            (END (GENSYM))
+            (INCREMENT (GENSYM)))
+        `(DESTRUCTURING-BIND (,START ,END &OPTIONAL (,INCREMENT 1)) 
+             (LIST ,@(CDR LIST))
+           (WHEN (OR (AND (<= ,START ,END) (PLUSP  ,INCREMENT))
+                     (AND (>= ,START ,END) (MINUSP ,INCREMENT)))
+             (IF (PLUSP ,INCREMENT)
+                 (DO ((,VAR ,START (+ ,VAR ,INCREMENT)))
+                     ((> ,VAR ,END))
+                   ,@BODY)
+                 (DO ((,VAR ,START (+ ,VAR ,INCREMENT)))
+                     ((< ,VAR ,END))
+                   ,@BODY)))))
+      `(DOLIST (,VAR ,LIST)
+         ,@BODY)))
+
+;(WITH-OUTPUT-TO-STRING (OUT)
+;  (FOR I (INDEX 60 80)
+;    (PRINC (CODE-CHAR I) OUT)))
+;⇒ "<=>?@ABCDEFGHIJKLMNOP"
+
+
+;(FOR I (EVAL '(INDEX 10 20 2))
+;  (PRINT I))
+
+;(LET ((I 8))
+;  (FOR I (INDEX (INCF I) 20)
+;    (PRINT I)))
+;⇒ NIL
+;9 
+;10 
+;11 
+;12 
+;13 
+;14 
+;15 
+;16 
+;17 
+;18 
+;19 
+;20 
+
