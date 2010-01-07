@@ -60,4 +60,6 @@
            :do-template
            :$
            :$*
-           :with-ca/dr))
+           :with-ca/dr
+           :index
+           :for))
