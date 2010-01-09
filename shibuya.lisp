@@ -1092,7 +1092,7 @@ form1 form2 ... を var を使って順に実行する。 var は list の各要
 <例>
         (for i (index 60 80) (prins i)) -> <=>?@ABCDEFGHIJKLMNOP
         				  nil"
-  (IF (EQL 'INDEX (CAR LIST))           ;(index)関数の呼び出しはせずマクロに展開
+  (IF (EQL 'INDEX (CAR-SAFE LIST))       ;(index)関数の呼び出しはせずマクロに展開
       (LET ((START (GENSYM))
             (END (GENSYM))
             (INCREMENT (GENSYM)))
@@ -1135,4 +1135,3 @@ form1 form2 ... を var を使って順に実行する。 var は list の各要
 ;18 
 ;19 
 ;20 
-
