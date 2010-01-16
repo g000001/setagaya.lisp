@@ -1135,3 +1135,15 @@ form1 form2 ... を var を使って順に実行する。 var は list の各要
 ;18 
 ;19 
 ;20 
+
+;; Unixコマンドのtr
+;; http://ja.doukaku.org/comment/5639/
+(defun tr (from to string)
+  (map 'string (lambda (c)
+                 (or (some (lambda (x y) (and (char= x c) y)) from to)
+                     c))
+       string))
+
+
+
+
