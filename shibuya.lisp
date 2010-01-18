@@ -134,6 +134,20 @@
          (append (flatten (car lis)) (flatten (cdr lis))))
         (t (append (list (car lis)) (flatten (cdr lis))))))
 
+;; 点対リストにも対応したflatten
+(DEFUN-COMPILE-TIME FLATTEN-SAFE (TREE)
+  (COND ((ATOM TREE) TREE)
+        ((NOT (LISTP (CDR TREE)))
+         (FLATTEN-SAFE (LIST (CAR TREE) (CDR TREE))))
+        ((LISTP (CAR TREE))
+         (APPEND (FLATTEN-SAFE (CAR TREE))
+                 (FLATTEN-SAFE (CDR TREE))))
+        ('T (CONS (CAR TREE)
+                  (FLATTEN-SAFE (CDR TREE))))))
+
+;(FLATTEN-SAFE '((((((((((()))(1 . 2) . 3) . 4)))))()) . 5))
+;⇒ (1 2 3 4 5)
+
 ;; キーワードなのに関数
 ;; http://cadr.g.hatena.ne.jp/g000001/20090929/1254234012
 (DEFMACRO WITH-KEYWORD-FUNCTION (&BODY BODY)
@@ -792,9 +806,10 @@
   (let ((g (gensym)))
     `(LAMBDA (&rest ,g)
        (DESTRUCTURING-BIND ,args ,g
-         (DECLARE (IGNORABLE ,@(flatten args)))
+         (DECLARE (IGNORABLE ,@(flatten-safe args)))
          ,@body))))
-
+(MAPCAR (FN ((A . B)) (LIST A B))
+        '((1 2)))
 (defmacro MULTIPLE-VALUE-PSETQ (&rest pairs)
   (cond ((cddr pairs) `(SETF (VALUES ,@(car pairs))
                              (MULTIPLE-VALUE-PROG1 ,(cadr pairs)
