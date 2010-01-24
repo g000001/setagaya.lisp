@@ -1159,6 +1159,23 @@ form1 form2 ... を var を使って順に実行する。 var は list の各要
                      c))
        string))
 
-
-
+;; from Let over lambda
+(defmacro# nlet (n letargs &body body)
+  (let ((gs (loop for i in letargs
+                  collect (gensym))))
+    `(macrolet
+       ((,n ,gs
+          `(progn
+             (psetq
+               ,@(apply #'nconc
+                        (mapcar
+                          #'list
+                          ',(mapcar #'car letargs)
+                          (list ,@gs))))
+             (go ,',#:n))))
+       (block ,#:b
+         (let ,letargs
+           (tagbody
+              ,#:n (return-from
+                   ,#:b (progn ,@body))))))))
 
