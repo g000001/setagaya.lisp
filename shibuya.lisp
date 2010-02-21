@@ -1179,3 +1179,56 @@ form1 form2 ... を var を使って順に実行する。 var は list の各要
               ,#:n (return-from
                    ,#:b (progn ,@body))))))))
 
+(defun-compile-time des- (bind sym)
+  (let (vars)
+    (values 
+     (labels ((frob (bind sym)
+		(cond ((null bind) nil)	
+                      
+		      ((atom bind)
+		       `((setq  ,bind ,sym)))
+                      
+		      ((null (car bind))
+		       `((setq ,sym (cdr ,sym))
+			 ,@(frob (cdr bind) sym)))
+                      
+		      ((and (atom (car bind)) (null (cdr bind)))
+		       `((setq ,(car bind) (car ,sym)))) ;last -1
+
+		      ((atom (car bind))
+		       `((setq ,(car bind) (car ,sym))
+			 (setq ,sym (cdr ,sym))
+			 ,@(frob (cdr bind) sym)))
+
+		      ('T (let ((carcons (gensym)))
+			    (push carcons vars)
+			    `((setq ,carcons (car ,sym))
+			      ,@(frob (car bind) carcons)
+			      (setq ,sym (cdr ,sym))
+			      ,@(frob (cdr bind) sym)))))))
+       (frob bind sym))
+     vars)))
+
+(defmacro desetq (&rest bind-specs)
+  (unless (evenp (length bind-specs))
+    (error "Too many arguments in form ~S." bind-specs))
+  (do ((l bind-specs (cddr l)) 
+       body vars)
+      ((endp l) `((lambda ,vars ,@body) ,@(mapcar (constantly () ) vars)))
+    (let ((var (car l)) (val (cadr l)))
+      (if (consp var)
+	  (let ((tem (gensym)))
+	    (multiple-value-bind (varlist vallist) (des- var tem)
+	      (setq vars `(,@vallist ,@vars ,tem))
+	      (setq body `(,@body (setq ,tem ,val) ,@varlist))))
+	  (setq body `(,@body (setq ,var ,val)))))))
+
+#|
+ (LET (A B C D E F)
+  (DESETQ (((a) b c) d e f)  '(((1) 2 3) 4 5 6))
+  (LIST A B C D E F))
+;⇒ (1 2 3 4 5 6)
+|#
+
+
+
