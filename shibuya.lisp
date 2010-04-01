@@ -1231,4 +1231,23 @@ form1 form2 ... を var を使って順に実行する。 var は list の各要
 |#
 
 
+(DEFUN URI-UNRESERVED-CHAR-SV? (SV)
+  (LET ((UNRESERVED-CHAR-SVS 
+         (MAP 'LIST
+           #'CHAR-CODE 
+           "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._‾")))
+    (NOT (NULL (MEMBER SV UNRESERVED-CHAR-SVS)))))
 
+(DEFUN URI-ENCODE (STR)
+  (WITH-OUTPUT-TO-STRING (OUT)
+    (MAP NIL
+         (LAMBDA (SV)
+           (IF (URI-UNRESERVED-CHAR-SV? SV)
+               (PRINC (CODE-CHAR SV) OUT)
+               (FORMAT OUT "%~(~X~)" SV)))
+         (TRIVIAL-UTF-8:STRING-TO-UTF-8-BYTES STR))))
+
+#|
+ (uri-encode "逆引き Scheme")
+⇒ %e9%80%86%e5%bc%95%e3%81%8d%20Scheme
+|#
