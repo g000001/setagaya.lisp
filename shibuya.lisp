@@ -7,7 +7,7 @@
     `(eval-when (:compile-toplevel :load-toplevel :execute)
        (cl:defun ,function-name ,lambda-list ,@body)
        #-(or akcl harlequin-common-lisp)
-       (eval-when (:compile-toplevel) (compile ',function-name)))))
+       (eval-when (:compile-toplevel) (compile ',functiQon-name)))))
 
 ;; Arcより
 (defmacro zap (op place &rest args)
@@ -1225,17 +1225,17 @@ form1 form2 ... を var を使って順に実行する。 var は list の各要
 
 #|
  (LET (A B C D E F)
-  (DESETQ (((a) b c) d e f)  '(((1) 2 3) 4 5 6))
+  (DESETQ (((a) b c) d e f)  
+         '(((1) 2 3) 4 5 6))
   (LIST A B C D E F))
 ;⇒ (1 2 3 4 5 6)
 |#
 
-
 (DEFUN URI-UNRESERVED-CHAR-SV? (SV)
   (LET ((UNRESERVED-CHAR-SVS 
          (MAP 'LIST
-           #'CHAR-CODE 
-           "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._‾")))
+              #'CHAR-CODE 
+              "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._‾")))
     (NOT (NULL (MEMBER SV UNRESERVED-CHAR-SVS)))))
 
 (DEFUN URI-ENCODE (STR)
@@ -1251,3 +1251,47 @@ form1 form2 ... を var を使って順に実行する。 var は list の各要
  (uri-encode "逆引き Scheme")
 ⇒ %e9%80%86%e5%bc%95%e3%81%8d%20Scheme
 |#
+
+;; Rubyより拝借
+(DEFMACRO TAP ((NAME RESULT-OBJ) &BODY BODY)
+  `(LET ((,NAME ,RESULT-OBJ))
+     ,@BODY
+     ,NAME))
+
+;; Anaphoric版
+(DEFMACRO ATAP (RESULT-OBJ &BODY BODY)
+  `(LET ((IT ,RESULT-OBJ))
+     ,@BODY
+     IT))
+
+;; 名前が短くて良いのでtaoより拝借(nilは受けつけない)
+(DEFUN SCONC (&REST STRINGS)
+  "sconc                                  関数[#!subr]
+
+<説明>
+  形式 : sconc &rest string1 string2 ... stringN
+string1 string2 ... stringN を 1 つの文字列に結合し、その結果を返す。
+
+<例>
+        (sconc \"a\" \"b\") -> \"ab\"
+        (sconc \"123\" \"45\" \"6789\") -> \"123456789\"
+        (sconc \"abc\" nil) -> \"abc\""
+  (DECLARE (OPTIMIZE (SAFETY 0) (SPEED 3))
+           (DYNAMIC-EXTENT STRINGS))
+  (LET ((LEN 0)
+        (POS 0))
+    (DECLARE (FIXNUM LEN POS))
+    (DOLIST (S STRINGS)
+      (DECLARE (SIMPLE-STRING S))
+      (INCF LEN (LENGTH S)))
+    (LET ((RESULT (MAKE-STRING LEN)))
+      (DECLARE (SIMPLE-STRING RESULT))
+      (DOLIST (S STRINGS)
+        (DECLARE (SIMPLE-STRING S))
+        (LOOP :FOR C :ACROSS S
+              :DO (SETF (SCHAR RESULT POS) C) (INCF POS)))
+      RESULT)))
+
+#|(loop :repeat 1000000 :do (sconc "foo" "bar" "あ"))|#
+#|(loop :repeat 1000000 :do (UTIL.STRING:STRING+ "foo" "bar" "あ"))|#
+#|(loop :repeat 1000000 :do (CONCATENATE 'STRING "foo" "bar" "あ"))|#
