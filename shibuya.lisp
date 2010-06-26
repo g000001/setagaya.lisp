@@ -7,7 +7,7 @@
     `(eval-when (:compile-toplevel :load-toplevel :execute)
        (cl:defun ,function-name ,lambda-list ,@body)
        #-(or akcl harlequin-common-lisp)
-       (eval-when (:compile-toplevel) (compile ',functiQon-name)))))
+       (eval-when (:compile-toplevel) (compile ',function-name)))))
 
 ;; Arcより
 (defmacro zap (op place &rest args)
