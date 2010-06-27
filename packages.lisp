@@ -63,4 +63,12 @@
            :with-ca/dr
            :index
            :for
-           :tr))
+           :tr
+           :nlet
+           :desetq
+           :uri-encode
+           :tap
+           :atap
+           :sconc
+           :it
+           ))
