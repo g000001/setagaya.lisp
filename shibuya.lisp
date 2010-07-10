@@ -786,6 +786,13 @@
 
 ;; multiple-value-do
 ;; http://cadr.g.hatena.ne.jp/g000001/20080322/1206160599
+(defmacro FN ((&rest args) &body body) ;; Arcから拝借
+  (let ((g (gensym)))
+    `(LAMBDA (&rest ,g)
+       (DESTRUCTURING-BIND ,args ,g
+         (DECLARE (IGNORABLE ,@(flatten-safe args)))
+         ,@body))))
+
 (defmacro MULTIPLE-VALUE-DO ((&rest varlist) (test &rest finally) &body body)
   (let ((vars (mappend #'car varlist))
         (inits (mappend #'cadr varlist))
@@ -802,14 +809,6 @@
                                              varlist))
             (GO ,tag))))))
 
-(defmacro FN ((&rest args) &body body) ;; Arcから拝借
-  (let ((g (gensym)))
-    `(LAMBDA (&rest ,g)
-       (DESTRUCTURING-BIND ,args ,g
-         (DECLARE (IGNORABLE ,@(flatten-safe args)))
-         ,@body))))
-(MAPCAR (FN ((A . B)) (LIST A B))
-        '((1 2)))
 (defmacro MULTIPLE-VALUE-PSETQ (&rest pairs)
   (cond ((cddr pairs) `(SETF (VALUES ,@(car pairs))
                              (MULTIPLE-VALUE-PROG1 ,(cadr pairs)
