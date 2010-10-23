@@ -1294,3 +1294,44 @@ string1 string2 ... stringN を 1 つの文字列に結合し、その結果を�
 #|(loop :repeat 1000000 :do (sconc "foo" "bar" "あ"))|#
 #|(loop :repeat 1000000 :do (UTIL.STRING:STRING+ "foo" "bar" "あ"))|#
 #|(loop :repeat 1000000 :do (CONCATENATE 'STRING "foo" "bar" "あ"))|#
+
+;; Lisp マシン ELIS 上の新 Lisp TAO
+;;  (情報処理学会 記号処理研究会 20-5, 1982.10.18.) より
+
+;; (DC FIB (N)
+;;   ((< N 2) N)
+;;   ('T (+ (FIB (1- N))
+;;          (FIB (- N 2)))))
+(DEFMACRO DC (NAME (&REST ARGS) &BODY BODY)
+  `(DEFUN ,NAME (,@ARGS)
+     (COND ,@BODY)))
+
+
+;; anaphoric progn
+(defmacro aprogn (&body body)
+  (reduce (lambda (ans x)
+            (subst ans 'it x :test #'equal))
+          body))
+#||
+ (defmacro aprogn (&body body)
+  (let (_it_)
+    (if (symbolp (eval (car body)))
+        (setq _it_ (eval (car body))    ;itの代わりに他のシンボルを使えるようにする
+              body (cdr body))
+        (setq _it_ 'it))                ;デフォルト
+    (when body
+      (reduce (lambda (ans x)
+                (subst ans _it_ x :test #'equal))
+              body))))
+
+ (aprogn 
+   'hello)
+||#
+
+
+
+
+
+
+
+

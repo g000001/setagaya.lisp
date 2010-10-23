@@ -71,4 +71,6 @@
            :atap
            :sconc
            :it
+           :dc
+           :aprogn
            ))
