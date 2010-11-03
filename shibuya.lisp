@@ -1,5 +1,17 @@
 (in-package :sl)
 
+(defconstant +example-alist+
+  (loop :for i :from 0
+        :for c :across "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        :collect (cons (intern  (string c)) i))
+  "コード例等を書く時等に使うALIST")
+
+(defconstant +example-plist+
+  (loop :for i :from 0
+        :for c :across "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        :append (list (intern  (string c)) i))
+  "コード例等を書く時等に使うPLIST")
+
 ;; Compile時定義でも効くdefun
 ;; iterateより拝借
 (eval-when (:compile-toplevel :load-toplevel :execute)
