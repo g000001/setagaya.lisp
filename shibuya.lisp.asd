@@ -3,6 +3,6 @@
 
 (asdf:defsystem :shibuya.lisp
   :name "shibuya.lisp"
-  :depends-on (:cl-ppcre :drakma)
+  :depends-on (:cl-ppcre :drakma :trivial-utf-8)
   :components ((:file "packages")
                (:file "shibuya" :depends-on ("packages"))))

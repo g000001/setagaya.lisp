@@ -1,20 +1,23 @@
 (in-package :sl)
 
-(defconstant +example-alist+
-  (loop :for i :from 0
-        :for c :across "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        :collect (cons (intern  (string c)) i))
-  "コード例等を書く時等に使うALIST")
-
-(defconstant +example-plist+
-  (loop :for i :from 0
-        :for c :across "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        :append (list (intern  (string c)) i))
-  "コード例等を書く時等に使うPLIST")
-
-;; Compile時定義でも効くdefun
-;; iterateより拝借
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (unless (boundp '+example-alist+)
+    (defconstant +example-alist+
+      (loop :for i :from 0
+            :for c :across "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            :collect (cons (intern  (string c)) i))
+      "コード例等を書く時等に使うALIST"))
+
+  (unless (boundp '+example-plist+)
+    (defconstant +example-plist+
+      (loop :for i :from 0
+            :for c :across "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            :append (list (intern  (string c)) i))
+      "コード例等を書く時等に使うPLIST"))
+
+  ;; Compile時定義でも効くdefun
+  ;; iterateより拝借
+
   (defmacro defun-compile-time (function-name lambda-list &body body)
     `(eval-when (:compile-toplevel :load-toplevel :execute)
        (cl:defun ,function-name ,lambda-list ,@body)
@@ -32,7 +35,7 @@
 
 ;; TAOより拝借
 ;; (list 'a 'b 'c 'd)などと書くのが面倒だと思ったときに
-;; 
+;;
 ;; (listq foo bar baz)
 ;; ;⇒ (FOO BAR BAZ)
 
@@ -62,7 +65,7 @@
   (ycall #'fibf 39))|#
 ;⇒ 102334155
 ;----------
-;(FLET ((FIBF (F) (LAMBDA (N) (IF (< N 2) 1 (+ (FUNCALL F (1- N)) (FUNCALL F (- N 2))))))) (DECLARE (FTYPE (FUNCTION (FUNCTION) FUNCTION) FIBF)) (YCALL #'FIBF 39)) took 66,643,181 microseconds (66.643180 seconds) to run 
+;(FLET ((FIBF (F) (LAMBDA (N) (IF (< N 2) 1 (+ (FUNCALL F (1- N)) (FUNCALL F (- N 2))))))) (DECLARE (FTYPE (FUNCTION (FUNCTION) FUNCTION) FIBF)) (YCALL #'FIBF 39)) took 66,643,181 microseconds (66.643180 seconds) to run
 ;                    with 2 available CPU cores.
 ;During that period, 61,650,000 microseconds (61.650000 seconds) were spent in user mode
 ;                    2,090,000 microseconds (2.090000 seconds) were spent in system mode
@@ -83,11 +86,11 @@
 	(gss))
     (dolist (item form `(lambda ,(nreverse gss) ,(nreverse result)))
       (case item
-	(<> 
+	(<>
 	 (let ((gs (gensym)))
 	   (push gs result)
 	   (push gs gss)))
-	(<...> 
+	(<...>
 	 (let ((gs (gensym)))
 	   (push gs result)
 	   (push '&rest gss)
@@ -103,11 +106,11 @@
 		      (error "CUT:found garbage in lambda list when expecting a `<...>': ~S" (car (last form))))
 		  form))
 	(result)
-	(gss)    
+	(gss)
 	(binds))
     (dolist (item form `(let ,binds (lambda ,(nreverse gss) ,(nreverse result))))
       (case item
-	(<> 
+	(<>
 	 (let ((gs (gensym)))
 	   (push gs result)
 	   (push gs gss)))
@@ -184,7 +187,7 @@
   (DO ((BODY BODY (CDDR BODY))
        (BINDS () (DESTRUCTURING-BIND (VAR VAL &REST IGNORE) BODY
                    (DECLARE (IGNORE IGNORE))
-                   (PUSH `(,(INTERN (SYMBOL-NAME VAR)) ,VAL) 
+                   (PUSH `(,(INTERN (SYMBOL-NAME VAR)) ,VAL)
                          BINDS))))
       ((NOT (KEYWORDP (CAR BODY)))
        `(LET (,@(NREVERSE BINDS))
@@ -208,7 +211,7 @@
       (SETF (ELT RES IDX) TEM))))
 
 ;; Example
-;; (MAP-ACCUM (LAMBDA (X Y Z ACC) 
+;; (MAP-ACCUM (LAMBDA (X Y Z ACC)
 ;;              (VALUES (LIST ACC X Y Z) (1+ ACC)))
 ;;            0
 ;;            '(A B C E E)
@@ -216,8 +219,8 @@
 ;;            '(J K L))
 ;;⇒ ((0 A F J) (1 B G K) (2 C H L)),
 ;;   3
-;; 
-;; (MAP-ACCUM (LAMBDA (X Y ACC) 
+;;
+;; (MAP-ACCUM (LAMBDA (X Y ACC)
 ;;              (VALUES (IF (CHAR< X Y) X Y)
 ;;                      (1+ ACC)))
 ;;            0
@@ -287,7 +290,7 @@
 ;; http://cadr.g.hatena.ne.jp/g000001/20090222/1235279666
 (defmacro lambda# ((&rest bvl-spec) &body body)
   (let ((ignores (remove-if #'symbol-package bvl-spec)))
-    `(lambda ,bvl-spec 
+    `(lambda ,bvl-spec
        ,@(when ignores `((declare (ignore ,@ignores))))
        ,@body)))
 
@@ -306,7 +309,7 @@
 (defmacro defun# (name lambda-list &body body)
   (flet ((&rest#-p (x) (string-equal '&rest# x)))
     (let ((dynamic (second (member-if #'&rest#-p lambda-list))))
-      `(defun ,name ,(substitute-if '&rest #'&rest#-p lambda-list) 
+      `(defun ,name ,(substitute-if '&rest #'&rest#-p lambda-list)
          ,@(when dynamic `((declare (dynamic-extent ,dynamic))))
          ,@body))))
 
@@ -386,7 +389,7 @@
   (defun mapf (finalf loopf &rest lists)
     ;; mapleave
     (catch '#0#
-      (prog* ((lists (copy-tree lists)) 
+      (prog* ((lists (copy-tree lists))
               (len (length lists))
               (ans (list :ans))
               (tem ans))
@@ -401,7 +404,7 @@
                            ;; nomal
                            (setf (cdr tem)
                                  (list
-                                  (apply loopf (and lists 
+                                  (apply loopf (and lists
                                                     (mapcar #'car lists)))))
                            (or finalf (go :esc)) ;finalf?
                            (setf tem (cdr tem))
@@ -414,7 +417,7 @@
          (go :top)
        :fin  (return (and finalf (apply finalf (cdr ans))))))))
 
-;; Example 
+;; Example
 ;; (defmacro once-only ((&rest vars) &body body)
 ;;   (mapf (lambda (&rest arg)
 ;;           `(let ,(mapcar #'first arg)
@@ -491,15 +494,15 @@
 ;  (-> print)
 ;  (-> list :foo :bar :baz)
 ;  (print it))
-; 
-;>>> 4 
-;>>> (4 :FOO :BAR :BAZ) 
+;
+;>>> 4
+;>>> (4 :FOO :BAR :BAZ)
 
 ;; lisp1的
 ;; http://cadr.g.hatena.ne.jp/g000001/20081015/1224023297
 (defmacro with-lisp1 (&body body)
-  (let ((syms (remove-if-not (lambda (x) 
-                               (and (symbolp x) 
+  (let ((syms (remove-if-not (lambda (x)
+                               (and (symbolp x)
                                     (fboundp x)
                                     (not (eq 'quote x))))
                              (flatten body))))
@@ -512,7 +515,7 @@
 ;;   (mapcar 1+ '(1 2 3 4)))
 ;; ;=> (2 3 4 5)
 
-;; (with-lisp1 
+;; (with-lisp1
 ;;   (sort (list 38 29 3 1) <))
 
 ;; ;=> (1 3 29 38)
@@ -525,10 +528,10 @@
                        (string-equal '&aux (string (caar forms)))
                        (prog1 (cdar forms) (pop forms))))
         (exit (gensym "EXIT-")))
-    (cl:loop 
-       :with cuts 
+    (cl:loop
+       :with cuts
        :and tags := (list exit)
-       :and body 
+       :and body
        :and ans := (gensym "ANS-")
 
        :for x :in forms
@@ -537,7 +540,7 @@
              (push (gensym "CUT-") cuts)
              (push `(if ,(car cuts) (go ,exit) (setq ,(car cuts) t))
                    (cdr body)))
-       :else 
+       :else
        :do (progn
              (push (gensym "TAG-") tags)
              (push (car tags) body)
@@ -550,7 +553,7 @@
 ;; (! (&aux (foo 0) result)
 ;;    result
 ;;    (= foo 100)
-;;    (progn (incf foo) 
+;;    (progn (incf foo)
 ;;           (zap append result (list foo))))
 ;; ;=> (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29
 ;;  30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55
@@ -616,7 +619,7 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter *fn*
-    '(car cdr rest first second third forth fifth sixth seventh eighth ninth tenth 
+    '(car cdr rest first second third forth fifth sixth seventh eighth ninth tenth
       reverse length null gensym 1+ 1-)))
 
 (defmacro with-dot-concat ((&rest args) &body body)
@@ -645,7 +648,7 @@
 ;;                            ((eql car.coll item)
 ;;                             (recur cdr.coll (list 1+.cnt car.coll) acc))
 ;;                            (:else
-;;                             (recur cdr.coll 
+;;                             (recur cdr.coll
 ;;                                    `(1 ,car.coll)
 ;;                                    (cons (if (= 1 cnt)
 ;;                                              item
@@ -662,7 +665,7 @@
 ;; http://cadr.g.hatena.ne.jp/g000001/20080930/1222765327
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defvar *anaphoras*
-    '(car cdr rest 
+    '(car cdr rest
       first second third forth fifth sixth seventh eighth ninth tenth)))
 
 (defmacro adestructuring-bind (list &body body)
@@ -688,7 +691,7 @@
   (let ((x (list x)))
     (if (null ptr)
         (cons x x)
-        (progn (psetf (cddr ptr) x             
+        (progn (psetf (cddr ptr) x
                       (cdr ptr) x)
                ptr))))
 
@@ -709,7 +712,7 @@
 ;; ;; tconcの動作
 ;; (loop :with start := 1 :and end := 10
 ;;       :with tc := (tconc () start)
-;;       :for i :from (1+ start) :to end :do (tconc tc i) 
+;;       :for i :from (1+ start) :to end :do (tconc tc i)
 ;;       :finally (return (car tc)))
 
 ;; ;==> (1 2 3 4 5 6 7 8 9 10)
@@ -717,7 +720,7 @@
 ;; ;; lconcの動作
 ;; (loop :with start := 1 :and end := 10
 ;;       :with lc := (lconc (list ()) (list start))
-;;       :for i :from (1+ start) :to end :do (lconc lc (list i)) 
+;;       :for i :from (1+ start) :to end :do (lconc lc (list i))
 ;;       :finally (return (car lc)))
 
 ;; ;==> (1 2 3 4 5 6 7 8 9 10)
@@ -840,7 +843,7 @@
 	 (out-file (concatenate 'string dir file-name)))
     (format t "~A ==> ~A~%" uri out-file)
     (with-open-file (out out-file
-			 :direction :output 
+			 :direction :output
 			 :if-exists :supersede
 			 :element-type 'unsigned-byte)
       (with-open-stream (str (drakma:http-request uri :want-stream 'T))
@@ -877,7 +880,7 @@
            (TAIL NIL PL)
            (MODIFYP NIL))
           ((ENDP PL) (PROG1 PLIST
-                            (UNLESS MODIFYP 
+                            (UNLESS MODIFYP
                               (NCONC TAIL (LIST PKEY VALUE)))))
         (WHEN (FUNCALL TEST PKEY (CAR PL))
           (SETF (CADR PL) VALUE
@@ -887,7 +890,7 @@
 ;; http://cadr.g.hatena.ne.jp/g000001/20080131/1201722804
 
 ;; 動作
-;; (tail-recursive-defun fib (n &optional (a1 1) (a2 0)) 
+;; (tail-recursive-defun fib (n &optional (a1 1) (a2 0))
 ;;   (if (< n 2)
 ;;       a1
 ;;       (fib (1- n) (+ a1 a2) a1)))
@@ -921,7 +924,7 @@
        (prog ()
 	  ,go-tag
 	  (return
-	    ,@(fn-to-lambda (funcall-to-goto (remove-&param args) go-tag) name 
+	    ,@(fn-to-lambda (funcall-to-goto (remove-&param args) go-tag) name
 			    body))))))
 
 ;; LET-NREVERSE
@@ -940,8 +943,8 @@
     (do ((s (read in nil :eof) (read in nil :eof))
 	 names)
 	((eql :eof s) (sort names #'string-lessp))
-        (if (member (if (atom s) s (car s)) 
-                    '(defun defmacro defconstant defalias mac)
+        (if (member (if (atom s) s (car s))
+                    '(defun defmacro defconstant defalias mac defs defunS)
                     :test #'string-equal)
             (push (make-symbol (string (cadr s))) names)))))
 
@@ -962,21 +965,21 @@
 	(rec source nil)
 	nil)))
 
-;; 
+;;
 ;; Clojure 1.1のDO-TEMPLATEのまね
 ;; http://vimeo.com/channels/fulldisclojure
-;; 
-(DEFUN-COMPILE-TIME SUBST* (NEWS OLDS TREE &KEY (TEST #'EQL TESTP) 
+;;
+(DEFUN-COMPILE-TIME SUBST* (NEWS OLDS TREE &KEY (TEST #'EQL TESTP)
                                  (TEST-NOT #'EQL NOTP))
   (WHEN (AND TESTP NOTP)
     (ERROR ":TEST and :TEST-NOT were both supplied."))
   (IF (OR (ENDP NEWS) (ENDP OLDS))
       TREE
       (SUBST* (CDR NEWS) (CDR OLDS)
-              (APPLY #'SUBST (CAR NEWS) 
+              (APPLY #'SUBST (CAR NEWS)
                              (CAR OLDS)
-                             TREE 
-                             (IF NOTP 
+                             TREE
+                             (IF NOTP
                                  (LIST :TEST-NOT TEST-NOT)
                                  (LIST :TEST TEST))))))
 
@@ -989,12 +992,12 @@
 
 ;;   (DEFUN NAME (N)
 ;;     (+ N ADD))
-  
+
 ;;   FOO 2
 ;;   BAR 3
 ;;   BAZ 4)
 ;; =>
-;; (LIST 
+;; (LIST
 ;;  (DEFUN FOO (N) (+ N 2))
 ;;  (DEFUN BAR (N) (+ N 3))
 ;;  (DEFUN BAZ (N) (+ N 4)))
@@ -1008,10 +1011,10 @@
         ((NOT (CAR LINEL)))
       (FORMAT OUT "~{~A~:[~%~;~]~}" LINEL))))
 
-;; 
+;;
 ;; Gaucheの$
 ;; http://practical-scheme.net/wiliki/wiliki.cgi?Gauche%3A%24
-;; 
+;;
 (DEFMACRO $ (&WHOLE ARGS &REST IGNORE)
   (DECLARE (IGNORE IGNORE))
   ($-PARSE ARGS))
@@ -1025,20 +1028,20 @@
         (LAMBDA-ARG (GENSYM)))
     (LABELS ((*F (ARG ACC)
                (COND ((ENDP ARG) (REVERSE ACC))
-                     
+
                      ((AND PARTIAL? (ENDP (CDR (MEMBER '$ ARG))))
                       (LET ((ARG (BUTLAST ARG)))
                         `(APPLY #',(CAR ARG) ,@(CDR ARG)
-                                ,@(CDR ACC) 
+                                ,@(CDR ACC)
                                 ,LAMBDA-ARG)))
 
                      ((EQL (CAR ARG) '$)
                       `(,@(REVERSE ACC) ,(*F (CDR ARG) () )))
-                     
+
                      ((EQL (CAR ARG) '$*)
                       `(,@(REVERSE ACC)
                           (APPLY #',(CADR ARG) ,@(*F (CDDR ARG) () ))))
-                     
+
                      ('T (*F (CDR ARG) (CONS (CAR ARG) ACC))))))
       (IF PARTIAL?
           `(LAMBDA (&REST ,LAMBDA-ARG)
@@ -1057,9 +1060,9 @@
 ;        '(A B C D E))
 ;;⇒ (FOO-A FOO-B FOO-C FOO-D FOO-E)
 ;
-;(MAPCAR ($* CONCATENATE 'STRING 
+;(MAPCAR ($* CONCATENATE 'STRING
 ;            $ MAPCAR #'PRINC-TO-STRING
-;            $ LIST 
+;            $ LIST
 ;            $)
 ;        '(A B C D E)
 ;        '(1 2 3 4 5)
@@ -1110,7 +1113,7 @@ start が end より大きい場合、increment は負の数でなければな�
   "for                                    関数[#!subr]
 
 <説明>
-  形式 : for var list form1 form2  ... 
+  形式 : for var list form1 form2  ...
 form1 form2 ... を var を使って順に実行する。 var は list の各要素に
 逐次束縛されたものである。 form1 form2 ... は list の長さと同じ回数評価
 される。 nil を返す。
@@ -1122,7 +1125,7 @@ form1 form2 ... を var を使って順に実行する。 var は list の各要
       (LET ((START (GENSYM))
             (END (GENSYM))
             (INCREMENT (GENSYM)))
-        `(DESTRUCTURING-BIND (,START ,END &OPTIONAL (,INCREMENT 1)) 
+        `(DESTRUCTURING-BIND (,START ,END &OPTIONAL (,INCREMENT 1))
              (LIST ,@(CDR LIST))
            (WHEN (OR (AND (<= ,START ,END) (PLUSP  ,INCREMENT))
                      (AND (>= ,START ,END) (MINUSP ,INCREMENT)))
@@ -1149,18 +1152,18 @@ form1 form2 ... を var を使って順に実行する。 var は list の各要
 ;  (FOR I (INDEX (INCF I) 20)
 ;    (PRINT I)))
 ;⇒ NIL
-;9 
-;10 
-;11 
-;12 
-;13 
-;14 
-;15 
-;16 
-;17 
-;18 
-;19 
-;20 
+;9
+;10
+;11
+;12
+;13
+;14
+;15
+;16
+;17
+;18
+;19
+;20
 
 ;; Unixコマンドのtr
 ;; http://ja.doukaku.org/comment/5639/
@@ -1192,17 +1195,17 @@ form1 form2 ... を var を使って順に実行する。 var は list の各要
 
 (defun-compile-time des- (bind sym)
   (let (vars)
-    (values 
+    (values
      (labels ((frob (bind sym)
-		(cond ((null bind) nil)	
-                      
+		(cond ((null bind) nil)
+
 		      ((atom bind)
 		       `((setq  ,bind ,sym)))
-                      
+
 		      ((null (car bind))
 		       `((setq ,sym (cdr ,sym))
 			 ,@(frob (cdr bind) sym)))
-                      
+
 		      ((and (atom (car bind)) (null (cdr bind)))
 		       `((setq ,(car bind) (car ,sym)))) ;last -1
 
@@ -1223,7 +1226,7 @@ form1 form2 ... を var を使って順に実行する。 var は list の各要
 (defmacro desetq (&rest bind-specs)
   (unless (evenp (length bind-specs))
     (error "Too many arguments in form ~S." bind-specs))
-  (do ((l bind-specs (cddr l)) 
+  (do ((l bind-specs (cddr l))
        body vars)
       ((endp l) `((lambda ,vars ,@body) ,@(mapcar (constantly () ) vars)))
     (let ((var (car l)) (val (cadr l)))
@@ -1236,16 +1239,16 @@ form1 form2 ... を var を使って順に実行する。 var は list の各要
 
 #|
  (LET (A B C D E F)
-  (DESETQ (((a) b c) d e f)  
+  (DESETQ (((a) b c) d e f)
          '(((1) 2 3) 4 5 6))
   (LIST A B C D E F))
 ;⇒ (1 2 3 4 5 6)
 |#
 
 (DEFUN URI-UNRESERVED-CHAR-SV? (SV)
-  (LET ((UNRESERVED-CHAR-SVS 
+  (LET ((UNRESERVED-CHAR-SVS
          (MAP 'LIST
-              #'CHAR-CODE 
+              #'CHAR-CODE
               "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._‾")))
     (NOT (NULL (MEMBER SV UNRESERVED-CHAR-SVS)))))
 
@@ -1336,14 +1339,9 @@ string1 string2 ... stringN を 1 つの文字列に結合し、その結果を�
                 (subst ans _it_ x :test #'equal))
               body))))
 
- (aprogn 
+ (aprogn
    'hello)
 ||#
 
 
-
-
-
-
-
-
+;;; end.
