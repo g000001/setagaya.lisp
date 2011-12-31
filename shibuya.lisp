@@ -130,8 +130,8 @@
 ;; Anaphoric DEFUN
 ;; http://cadr.g.hatena.ne.jp/g000001/20091214/1260799762
 (DEFMACRO ADEFUN (NAME ARGS &BODY BODY)
-  `(DEFUN ,NAME (,@ARGS)
-     (MACROLET ((SELF (,@ARGS) `(,',NAME ,,@ARGS)))
+  `(MACROLET ((SELF (,@ARGS) `(,',NAME ,,@ARGS)))
+     (DEFUN ,NAME (,@ARGS)
        ,@BODY)))
 
 ;; Example
